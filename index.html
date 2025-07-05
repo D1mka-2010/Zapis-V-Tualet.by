@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Туалетная очередь с записью в файл</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #f0f8ff;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .queue-list {
+            margin-top: 20px;
+        }
+        .person {
+            background: #ecf0f1;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .admin-panel {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚽 Управление очередью в туалет</h1>
+        
+        <div class="form-group">
+            <label for="name">Имя:</label>
+            <input type="text" id="name" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="action">Действие:</label>
+            <select id="action">
+                <option value="3">Пописать (3 мин)</option>
+                <option value="5">Покакать (5 мин)</option>
+                <option value="7">Всё сразу (7 мин)</option>
+            </select>
+        </div>
+        
+        <button id="addBtn">Добавить в очередь</button>
+        
+        <div class="queue-list" id="queueList">
+            <h2>Текущая очередь:</h2>
+            <div id="queue"></div>
+        </div>
+        
+        <div class="admin-panel">
+            <h2>Панель администратора</h2>
+            <button id="saveBtn">Сохранить данные в файл</button>
+            <button id="loadBtn">Загрузить данные из файла</button>
+            <input type="file" id="fileInput" accept=".json" style="display: none;">
+        </div>
+    </div>
+
+    <script>
+        // Данные очереди
+        let queue = [];
+        const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+        
+        // Элементы DOM
+        const nameInput = document.getElementById('name');
+        const actionSelect = document.getElementById('action');
+        const addBtn = document.getElementById('addBtn');
+        const queueDiv = document.getElementById('queue');
+        const saveBtn = document.getElementById('saveBtn');
+        const loadBtn = document.getElementById('loadBtn');
+        const fileInput = document.getElementById('fileInput');
+        
+        // Добавление в очередь
+        addBtn.addEventListener('click', () => {
+            const name = nameInput.value.trim();
+            const action = actionSelect.value;
+            const actionText = actionSelect.options[actionSelect.selectedIndex].text;
+          if (!name) {
+                alert('Введите имя');
+                return;
+            }
+            
+            const randomLetter = letters[Math.floor(Math.random() * letters.length)];
+            const randomNumber = Math.floor(Math.random() * 900) + 100;
+            const ticketNumber = randomLetter + randomNumber;
+            
+            const person = {
+                id: Date.now(),
+                name,
+                action: actionText,
+                time: parseInt(action),
+                ticketNumber,
+                timestamp: new Date().toISOString()
+            };
+            
+            queue.push(person);
+            renderQueue();
+            nameInput.value = '';
+        });
+        
+        // Отображение очереди
+        function renderQueue() {
+            queueDiv.innerHTML = '';
+            
+            if (queue.length === 0) {
+                queueDiv.innerHTML = '<p>Очередь пуста</p>';
+                return;
+            }
+            
+            queue.forEach((person, index) => {
+                const personDiv = document.createElement('div');
+                personDiv.className = 'person';
+                
+                personDiv.innerHTML = 
+                    <div>
+                        <strong>${person.ticketNumber}</strong> - ${person.name}<br>
+                        ${person.action} (${person.time} мин)
+                    </div>
+                    <div>
+                        <button onclick="removePerson(${person.id})">❌</button>
+                        ${index === 0 ? '<button onclick="completeVisit()">✅ Завершить</button>' : ''}
+                    </div>
+                ;
+                
+                queueDiv.appendChild(personDiv);
+            });
+        }
+        
+        // Удаление из очереди
+        window.removePerson = function(id) {
+            queue = queue.filter(person => person.id !== id);
+            renderQueue();
+        };
+        
+        // Завершение посещения
+        window.completeVisit = function() {
+            if (queue.length > 0) {
+                queue.shift();
+                renderQueue();
+            }
+        };
+        
+        // Сохранение в файл
+        saveBtn.addEventListener('click', () => {
+            const data = JSON.stringify(queue, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'queue_data.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+        
+        // Загрузка из файла
+        loadBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    queue = JSON.parse(event.target.result);
+                    renderQueue();
+                    alert('Данные успешно загружены!');
+                } catch (error) {
+                    alert('Ошибка при чтении файла');
+                }
+            };
+            reader.readAsText(file);
+        });
+        
+        // Инициализация
+        renderQueue();
+    </script>
+</body>
+</html>
